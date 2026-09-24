@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Europe Trip 2027 — City Maps</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+        header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 2rem 1rem;
+            text-align: center;
+            border-bottom: 3px solid #6b1fa8;
+        }
+        header h1 {
+            font-size: 1.8rem;
+            letter-spacing: 0.5px;
+            color: #e6edf3;
+        }
+        header p {
+            font-size: 0.9rem;
+            color: #8b949e;
+            margin-top: 0.3rem;
+        }
+        .city-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        .city-tab {
+            padding: 0.6rem 1.2rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .city-tab:hover {
+            background: #30363d;
+            color: #e6edf3;
+        }
+        .city-tab.active {
+            background: #6b1fa8;
+            border-color: #8b5cf6;
+            color: #fff;
+        }
+        .city-tab .num {
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+        .map-container {
+            display: none;
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .map-container.active {
+            display: block;
+        }
+        .map-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1rem;
+        }
+        @media (max-width: 900px) {
+            .map-wrapper { grid-template-columns: 1fr; }
+        }
+        .map-box {
+            position: relative;
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #30363d;
+        }
+        .map-box > div, [id^="map-"] { width: 100%; height: 100%; }
+        .sidebar {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        .sidebar h3 {
+            font-size: 1rem;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #30363d;
+        }
+        .arrival-departure {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 0.8rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        .arrival-departure .label {
+            color: #8b949e;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .arrival-departure .value {
+            color: #e6edf3;
+            margin-top: 0.2rem;
+        }
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .legend-item:hover { background: #21262d; }
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .legend-item.disabled {
+            opacity: 0.4;
+        }
+        .legend-item.disabled .legend-dot {
+            opacity: 0.3;
+        }
+        .info-panel {
+            margin-top: 1rem;
+            padding: 0.8rem;
+            background: #21262d;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+        .leaflet-popup-content-wrapper {
+            background: #161b22;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+        }
+        .leaflet-popup-content {
+            margin: 0.8rem;
+            font-size: 0.85rem;
+        }
+        .leaflet-popup-content b {
+            color: #e6edf3;
+            font-size: 0.95rem;
+        }
+        .leaflet-popup-tip {
+            background: #161b22;
+        }
+        .leaflet-container {
+            background: #0d1117;
+        }
+        .leaflet-control-zoom a {
+            background: #21262d !important;
+            color: #e6edf3 !important;
+            border-color: #30363d !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: #30363d !important;
+        }
+        .leaflet-control-attribution {
+            background: #161b22 !important;
+            color: #8b949e !important;
+        }
+        .leaflet-control-attribution a {
+            color: #58a6ff !important;
+        }
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        .custom-marker i {
+            transform: rotate(45deg);
+            color: #fff;
+            font-size: 12px;
+        }
+        .count-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 0.7rem;
+            margin-left: 0.3rem;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Europe Trip 2027 — City Maps</h1>
+    <p>Bucharest → Budapest → Prague → Brussels → Paris | January 28 – March 1, 2027</p>
+</header>
+
+<div class="city-tabs" id="cityTabs">
+    <div class="city-tab active" onclick="switchCity('bucharest')"><span class="num">1</span>Bucharest</div>
+    <div class="city-tab" onclick="switchCity('budapest')"><span class="num">2</span>Budapest</div>
+    <div class="city-tab" onclick="switchCity('prague')"><span class="num">3</span>Prague</div>
+    <div class="city-tab" onclick="switchCity('brussels')"><span class="num">4</span>Brussels</div>
+    <div class="city-tab" onclick="switchCity('paris')"><span class="num">5</span>Paris</div>
+</div>
+<div class="map-container active" id="container-bucharest">
+    <div class="map-wrapper">
+        <div class="map-box"><div id="map-bucharest" class="map"></div></div>
+        <div class="sidebar">
+            <h3>Bucharest — Trip Info</h3>
+            <div class="arrival-departure">
+                <div class="label">Arrival</div><div class="value">Gara de Nord</div>
+            </div>
+            <div class="arrival-departure">
+                <div class="label">Departure</div><div class="value">Gara de Nord → Budapest (sleeper)</div>
+            </div>
+            <h3 style="margin-top:1rem;">Legend (toggle layers)</h3>
+            <div class="legend" id="legend-bucharest">
+                <div class="legend-item" onclick="toggleLayer('bucharest','stations')">
+                    <div class="legend-dot" style="background:#1a1a2e"></div>
+                    <span>Train Station (Arrival/Departure)</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','accommodations')">
+                    <div class="legend-dot" style="background:#2d4a8a"></div>
+                    <span>Accommodations (Top 3)</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','late_night_cafes')">
+                    <div class="legend-dot" style="background:#8B4513"></div>
+                    <span>Late-Night Cafes</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','art_deco')">
+                    <div class="legend-dot" style="background:#C9A227"></div>
+                    <span>Art Deco Sites</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','art_nouveau')">
+                    <div class="legend-dot" style="background:#2d8a5e"></div>
+                    <span>Art Nouveau Sites</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','tourist_sites')">
+                    <div class="legend-dot" style="background:#c0392b"></div>
+                    <span>Main Tourist Sites</span>
+                    <span class="count-badge">4</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','occult_sites')">
+                    <div class="legend-dot" style="background:#6b1fa8"></div>
+                    <span>Occult/Esoteric Sites</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('bucharest','occult_shops')">
+                    <div class="legend-dot" style="background:#8B0000"></div>
+                    <span>Occult/Esoteric Shops</span>
+                    <span class="count-badge">2</span>
+                </div>
+            </div>
+            <div class="info-panel">Click markers for details. Toggle legend items to show/hide layers.</div>
+        </div>
+    </div>
+</div>
+<div class="map-container" id="container-budapest">
+    <div class="map-wrapper">
+        <div class="map-box"><div id="map-budapest" class="map"></div></div>
+        <div class="sidebar">
+            <h3>Budapest — Trip Info</h3>
+            <div class="arrival-departure">
+                <div class="label">Arrival</div><div class="value">Keleti pályaudvar (sleeper from Bucharest)</div>
+            </div>
+            <div class="arrival-departure">
+                <div class="label">Departure</div><div class="value">Keleti → Prague (day train)</div>
+            </div>
+            <h3 style="margin-top:1rem;">Legend (toggle layers)</h3>
+            <div class="legend" id="legend-budapest">
+                <div class="legend-item" onclick="toggleLayer('budapest','stations')">
+                    <div class="legend-dot" style="background:#1a1a2e"></div>
+                    <span>Train Station (Arrival/Departure)</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','accommodations')">
+                    <div class="legend-dot" style="background:#2d4a8a"></div>
+                    <span>Accommodations (Top 3)</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','late_night_cafes')">
+                    <div class="legend-dot" style="background:#8B4513"></div>
+                    <span>Late-Night Cafes</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','art_deco')">
+                    <div class="legend-dot" style="background:#C9A227"></div>
+                    <span>Art Deco Sites</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','art_nouveau')">
+                    <div class="legend-dot" style="background:#2d8a5e"></div>
+                    <span>Art Nouveau Sites</span>
+                    <span class="count-badge">4</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','tourist_sites')">
+                    <div class="legend-dot" style="background:#c0392b"></div>
+                    <span>Main Tourist Sites</span>
+                    <span class="count-badge">6</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','occult_sites')">
+                    <div class="legend-dot" style="background:#6b1fa8"></div>
+                    <span>Occult/Esoteric Sites</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('budapest','occult_shops')">
+                    <div class="legend-dot" style="background:#8B0000"></div>
+                    <span>Occult/Esoteric Shops</span>
+                    <span class="count-badge">5</span>
+                </div>
+            </div>
+            <div class="info-panel">Click markers for details. Toggle legend items to show/hide layers.</div>
+        </div>
+    </div>
+</div>
+<div class="map-container" id="container-prague">
+    <div class="map-wrapper">
+        <div class="map-box"><div id="map-prague" class="map"></div></div>
+        <div class="sidebar">
+            <h3>Prague — Trip Info</h3>
+            <div class="arrival-departure">
+                <div class="label">Arrival</div><div class="value">Praha hlavní nádraží (day train from Budapest)</div>
+            </div>
+            <div class="arrival-departure">
+                <div class="label">Departure</div><div class="value">Praha hlavní nádraží → Brussels (sleeper)</div>
+            </div>
+            <h3 style="margin-top:1rem;">Legend (toggle layers)</h3>
+            <div class="legend" id="legend-prague">
+                <div class="legend-item" onclick="toggleLayer('prague','stations')">
+                    <div class="legend-dot" style="background:#1a1a2e"></div>
+                    <span>Train Station (Arrival/Departure)</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','accommodations')">
+                    <div class="legend-dot" style="background:#2d4a8a"></div>
+                    <span>Accommodations (Top 3)</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','late_night_cafes')">
+                    <div class="legend-dot" style="background:#8B4513"></div>
+                    <span>Late-Night Cafes</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','art_deco')">
+                    <div class="legend-dot" style="background:#C9A227"></div>
+                    <span>Art Deco Sites</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','art_nouveau')">
+                    <div class="legend-dot" style="background:#2d8a5e"></div>
+                    <span>Art Nouveau Sites</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','tourist_sites')">
+                    <div class="legend-dot" style="background:#c0392b"></div>
+                    <span>Main Tourist Sites</span>
+                    <span class="count-badge">5</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','occult_sites')">
+                    <div class="legend-dot" style="background:#6b1fa8"></div>
+                    <span>Occult/Esoteric Sites</span>
+                    <span class="count-badge">4</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('prague','occult_shops')">
+                    <div class="legend-dot" style="background:#8B0000"></div>
+                    <span>Occult/Esoteric Shops</span>
+                    <span class="count-badge">3</span>
+                </div>
+            </div>
+            <div class="info-panel">Click markers for details. Toggle legend items to show/hide layers.</div>
+        </div>
+    </div>
+</div>
+<div class="map-container" id="container-brussels">
+    <div class="map-wrapper">
+        <div class="map-box"><div id="map-brussels" class="map"></div></div>
+        <div class="sidebar">
+            <h3>Brussels — Trip Info</h3>
+            <div class="arrival-departure">
+                <div class="label">Arrival</div><div class="value">Brussels-Midi (sleeper from Prague)</div>
+            </div>
+            <div class="arrival-departure">
+                <div class="label">Departure</div><div class="value">Brussels-Midi → Paris (Eurostar)</div>
+            </div>
+            <h3 style="margin-top:1rem;">Legend (toggle layers)</h3>
+            <div class="legend" id="legend-brussels">
+                <div class="legend-item" onclick="toggleLayer('brussels','stations')">
+                    <div class="legend-dot" style="background:#1a1a2e"></div>
+                    <span>Train Station (Arrival/Departure)</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','accommodations')">
+                    <div class="legend-dot" style="background:#2d4a8a"></div>
+                    <span>Accommodations (Top 3)</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','late_night_cafes')">
+                    <div class="legend-dot" style="background:#8B4513"></div>
+                    <span>Late-Night Cafes</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','art_deco')">
+                    <div class="legend-dot" style="background:#C9A227"></div>
+                    <span>Art Deco Sites</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','art_nouveau')">
+                    <div class="legend-dot" style="background:#2d8a5e"></div>
+                    <span>Art Nouveau Sites</span>
+                    <span class="count-badge">4</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','tourist_sites')">
+                    <div class="legend-dot" style="background:#c0392b"></div>
+                    <span>Main Tourist Sites</span>
+                    <span class="count-badge">4</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','occult_sites')">
+                    <div class="legend-dot" style="background:#6b1fa8"></div>
+                    <span>Occult/Esoteric Sites</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('brussels','occult_shops')">
+                    <div class="legend-dot" style="background:#8B0000"></div>
+                    <span>Occult/Esoteric Shops</span>
+                    <span class="count-badge">5</span>
+                </div>
+            </div>
+            <div class="info-panel">Click markers for details. Toggle legend items to show/hide layers.</div>
+        </div>
+    </div>
+</div>
+<div class="map-container" id="container-paris">
+    <div class="map-wrapper">
+        <div class="map-box"><div id="map-paris" class="map"></div></div>
+        <div class="sidebar">
+            <h3>Paris — Trip Info</h3>
+            <div class="arrival-departure">
+                <div class="label">Arrival</div><div class="value">Gare Montparnasse (Eurostar from Brussels)</div>
+            </div>
+            <div class="arrival-departure">
+                <div class="label">Departure</div><div class="value">Gare Montparnasse → CDG → Indianapolis (flight home)</div>
+            </div>
+            <h3 style="margin-top:1rem;">Legend (toggle layers)</h3>
+            <div class="legend" id="legend-paris">
+                <div class="legend-item" onclick="toggleLayer('paris','stations')">
+                    <div class="legend-dot" style="background:#1a1a2e"></div>
+                    <span>Train Station (Arrival/Departure)</span>
+                    <span class="count-badge">1</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','accommodations')">
+                    <div class="legend-dot" style="background:#2d4a8a"></div>
+                    <span>Accommodations (Top 3)</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','late_night_cafes')">
+                    <div class="legend-dot" style="background:#8B4513"></div>
+                    <span>Late-Night Cafes</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','art_deco')">
+                    <div class="legend-dot" style="background:#C9A227"></div>
+                    <span>Art Deco Sites</span>
+                    <span class="count-badge">3</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','art_nouveau')">
+                    <div class="legend-dot" style="background:#2d8a5e"></div>
+                    <span>Art Nouveau Sites</span>
+                    <span class="count-badge">2</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','tourist_sites')">
+                    <div class="legend-dot" style="background:#c0392b"></div>
+                    <span>Main Tourist Sites</span>
+                    <span class="count-badge">5</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','occult_sites')">
+                    <div class="legend-dot" style="background:#6b1fa8"></div>
+                    <span>Occult/Esoteric Sites</span>
+                    <span class="count-badge">7</span>
+                </div>
+                <div class="legend-item" onclick="toggleLayer('paris','occult_shops')">
+                    <div class="legend-dot" style="background:#8B0000"></div>
+                    <span>Occult/Esoteric Shops</span>
+                    <span class="count-badge">8</span>
+                </div>
+            </div>
+            <div class="info-panel">Click markers for details. Toggle legend items to show/hide layers.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const cityData = {
+  "bucharest": {
+    "center": [
+      44.4346,
+      26.091
+    ],
+    "zoom": 14,
+    "layers": {
+      "stations": {
+        "color": "#1a1a2e",
+        "icon": "train",
+        "label": "Train Station (Arrival/Departure)",
+        "markers": [
+          {
+            "name": "Gara de Nord",
+            "lat": 44.4412,
+            "lon": 26.0712
+          }
+        ]
+      },
+      "accommodations": {
+        "color": "#2d4a8a",
+        "icon": "home",
+        "label": "Accommodations (Top 3)",
+        "markers": [
+          {
+            "name": "Euro Hotel Grivita",
+            "lat": 44.4435,
+            "lon": 26.0735
+          },
+          {
+            "name": "Airbnb Old Town/Lipscani",
+            "lat": 44.4320839,
+            "lon": 26.0990842
+          },
+          {
+            "name": "ibis Styles Bucharest City Center",
+            "lat": 44.4405109,
+            "lon": 26.0821217
+          }
+        ]
+      },
+      "late_night_cafes": {
+        "color": "#8B4513",
+        "icon": "coffee",
+        "label": "Late-Night Cafes",
+        "markers": [
+          {
+            "name": "Caru' cu Bere",
+            "lat": 44.4320009,
+            "lon": 26.0981059
+          },
+          {
+            "name": "Origo Coffee",
+            "lat": 44.4332107,
+            "lon": 26.0952613
+          }
+        ]
+      },
+      "art_deco": {
+        "color": "#C9A227",
+        "icon": "building",
+        "label": "Art Deco Sites",
+        "markers": [
+          {
+            "name": "The Marmorosch Bucharest",
+            "lat": 44.4364,
+            "lon": 26.1115
+          },
+          {
+            "name": "ibis Styles (Art Deco)",
+            "lat": 44.4405109,
+            "lon": 26.0821217
+          },
+          {
+            "name": "CEC Palace",
+            "lat": 44.4327,
+            "lon": 26.0997
+          }
+        ]
+      },
+      "art_nouveau": {
+        "color": "#2d8a5e",
+        "icon": "leaf",
+        "label": "Art Nouveau Sites",
+        "markers": [
+          {
+            "name": "Union of Architects HQ",
+            "lat": 44.4398,
+            "lon": 26.0879
+          },
+          {
+            "name": "Palatul Cantacuzino",
+            "lat": 44.4486959,
+            "lon": 26.0882936
+          }
+        ]
+      },
+      "tourist_sites": {
+        "color": "#c0392b",
+        "icon": "camera",
+        "label": "Main Tourist Sites",
+        "markers": [
+          {
+            "name": "Palace of Parliament",
+            "lat": 44.4275103,
+            "lon": 26.0872481
+          },
+          {
+            "name": "Old Town / Lipscani",
+            "lat": 44.4318058,
+            "lon": 26.1015828
+          },
+          {
+            "name": "Romanian Athenaeum",
+            "lat": 44.4413572,
+            "lon": 26.097361
+          },
+          {
+            "name": "University Square",
+            "lat": 44.4349679,
+            "lon": 26.1008803
+          }
+        ]
+      },
+      "occult_sites": {
+        "color": "#6b1fa8",
+        "icon": "eye",
+        "label": "Occult/Esoteric Sites",
+        "markers": [
+          {
+            "name": "Gr\u0103dina Icoanei (Witches' Pond)",
+            "lat": 44.4433648,
+            "lon": 26.1038613
+          },
+          {
+            "name": "Kretzulescu Church",
+            "lat": 44.4381181,
+            "lon": 26.0966528
+          },
+          {
+            "name": "House of the Devil",
+            "lat": 44.4263,
+            "lon": 26.0975
+          }
+        ]
+      },
+      "occult_shops": {
+        "color": "#8B0000",
+        "icon": "shopping-bag",
+        "label": "Occult/Esoteric Shops",
+        "markers": [
+          {
+            "name": "Hathor House",
+            "lat": 44.4443941,
+            "lon": 26.1024231
+          },
+          {
+            "name": "Juc\u0103rie \u0219i Magie",
+            "lat": 44.3935,
+            "lon": 26.0975
+          }
+        ]
+      }
+    }
+  },
+  "budapest": {
+    "center": [
+      47.501,
+      19.055
+    ],
+    "zoom": 13,
+    "layers": {
+      "stations": {
+        "color": "#1a1a2e",
+        "icon": "train",
+        "label": "Train Station (Arrival/Departure)",
+        "markers": [
+          {
+            "name": "Keleti p\u00e1lyaudvar",
+            "lat": 47.5004801,
+            "lon": 19.0839399
+          }
+        ]
+      },
+      "accommodations": {
+        "color": "#2d4a8a",
+        "icon": "home",
+        "label": "Accommodations (Top 3)",
+        "markers": [
+          {
+            "name": "Star City Hotel",
+            "lat": 47.5048137,
+            "lon": 19.0810251
+          },
+          {
+            "name": "Hotel Hungaria City Center",
+            "lat": 47.4997145,
+            "lon": 19.0787764
+          },
+          {
+            "name": "Airbnb Jewish Quarter",
+            "lat": 47.5550363,
+            "lon": 18.9641349
+          }
+        ]
+      },
+      "late_night_cafes": {
+        "color": "#8B4513",
+        "icon": "coffee",
+        "label": "Late-Night Cafes",
+        "markers": [
+          {
+            "name": "Szimpla Kert",
+            "lat": 47.4969297,
+            "lon": 19.0633135
+          },
+          {
+            "name": "Instant-Fogas",
+            "lat": 47.5005267,
+            "lon": 19.0655234
+          },
+          {
+            "name": "New York Caf\u00e9",
+            "lat": 47.4986782,
+            "lon": 19.0704636
+          }
+        ]
+      },
+      "art_deco": {
+        "color": "#C9A227",
+        "icon": "building",
+        "label": "Art Deco Sites",
+        "markers": [
+          {
+            "name": "Gell\u00e9rt Thermal Bath",
+            "lat": 47.4835,
+            "lon": 19.0444
+          },
+          {
+            "name": "P\u00e1risi Nagy\u00e1ruh\u00e1z",
+            "lat": 47.4979,
+            "lon": 19.0573
+          }
+        ]
+      },
+      "art_nouveau": {
+        "color": "#2d8a5e",
+        "icon": "leaf",
+        "label": "Art Nouveau Sites",
+        "markers": [
+          {
+            "name": "Gresham Palace",
+            "lat": 47.4998167,
+            "lon": 19.0479092
+          },
+          {
+            "name": "Museum of Applied Arts",
+            "lat": 47.4859506,
+            "lon": 19.068202
+          },
+          {
+            "name": "Hungarian State Opera",
+            "lat": 47.5028701,
+            "lon": 19.0581577
+          },
+          {
+            "name": "Budapest West Railway Station",
+            "lat": 47.5105141,
+            "lon": 19.0572176
+          }
+        ]
+      },
+      "tourist_sites": {
+        "color": "#c0392b",
+        "icon": "camera",
+        "label": "Main Tourist Sites",
+        "markers": [
+          {
+            "name": "Hungarian Parliament",
+            "lat": 47.507,
+            "lon": 19.0457
+          },
+          {
+            "name": "Fisherman's Bastion",
+            "lat": 47.5023053,
+            "lon": 19.0346998
+          },
+          {
+            "name": "Buda Castle",
+            "lat": 47.4959913,
+            "lon": 19.0398008
+          },
+          {
+            "name": "Chain Bridge",
+            "lat": 47.4989791,
+            "lon": 19.0436494
+          },
+          {
+            "name": "Sz\u00e9chenyi Thermal Bath",
+            "lat": 47.5184354,
+            "lon": 19.0825223
+          },
+          {
+            "name": "St. Stephen's Basilica",
+            "lat": 47.5007766,
+            "lon": 19.053965
+          }
+        ]
+      },
+      "occult_sites": {
+        "color": "#6b1fa8",
+        "icon": "eye",
+        "label": "Occult/Esoteric Sites",
+        "markers": [
+          {
+            "name": "Semmelweis Museum",
+            "lat": 47.4933485,
+            "lon": 19.0429711
+          },
+          {
+            "name": "Hospital in the Rock",
+            "lat": 47.5007866,
+            "lon": 19.0314184
+          },
+          {
+            "name": "Buda Castle Labyrinth",
+            "lat": 47.5001272,
+            "lon": 19.0341437
+          }
+        ]
+      },
+      "occult_shops": {
+        "color": "#8B0000",
+        "icon": "shopping-bag",
+        "label": "Occult/Esoteric Shops",
+        "markers": [
+          {
+            "name": "Soter Esoteric Club",
+            "lat": 47.5075,
+            "lon": 19.072
+          },
+          {
+            "name": "Karma Guru Tibetshop",
+            "lat": 47.4985,
+            "lon": 19.072
+          },
+          {
+            "name": "Larimar Crystal",
+            "lat": 47.505,
+            "lon": 19.074
+          },
+          {
+            "name": "Krist\u00e1ly Centrum",
+            "lat": 47.513,
+            "lon": 19.085
+          },
+          {
+            "name": "Freshwater Bookstore",
+            "lat": 47.493,
+            "lon": 19.057
+          }
+        ]
+      }
+    }
+  },
+  "prague": {
+    "center": [
+      50.082,
+      14.425
+    ],
+    "zoom": 13,
+    "layers": {
+      "stations": {
+        "color": "#1a1a2e",
+        "icon": "train",
+        "label": "Train Station (Arrival/Departure)",
+        "markers": [
+          {
+            "name": "Praha hlavn\u00ed n\u00e1dra\u017e\u00ed",
+            "lat": 50.0829628,
+            "lon": 14.4360939
+          }
+        ]
+      },
+      "accommodations": {
+        "color": "#2d4a8a",
+        "icon": "home",
+        "label": "Accommodations (Top 3)",
+        "markers": [
+          {
+            "name": "Airbnb Vinohrady",
+            "lat": 50.0760203,
+            "lon": 14.4581937
+          },
+          {
+            "name": "Grand Hotel International",
+            "lat": 50.099,
+            "lon": 14.397
+          },
+          {
+            "name": "The Viaduct",
+            "lat": 50.087,
+            "lon": 14.428
+          }
+        ]
+      },
+      "late_night_cafes": {
+        "color": "#8B4513",
+        "icon": "coffee",
+        "label": "Late-Night Cafes",
+        "markers": [
+          {
+            "name": "Old Town Square bars",
+            "lat": 50.0874453,
+            "lon": 14.4209714
+          },
+          {
+            "name": "Lok\u00e1l Dlouh\u00e1\u00e1\u00e1",
+            "lat": 50.0906955,
+            "lon": 14.4257576
+          }
+        ]
+      },
+      "art_deco": {
+        "color": "#C9A227",
+        "icon": "building",
+        "label": "Art Deco Sites",
+        "markers": [
+          {
+            "name": "Grand Hotel International (Art Deco)",
+            "lat": 50.099,
+            "lon": 14.397
+          },
+          {
+            "name": "Municipal House (Art Nouveau)",
+            "lat": 50.0877557,
+            "lon": 14.4277637
+          }
+        ]
+      },
+      "art_nouveau": {
+        "color": "#2d8a5e",
+        "icon": "leaf",
+        "label": "Art Nouveau Sites",
+        "markers": [
+          {
+            "name": "Prague Main Station (Art Nouveau)",
+            "lat": 50.0829628,
+            "lon": 14.4360939
+          },
+          {
+            "name": "Municipal House",
+            "lat": 50.0877557,
+            "lon": 14.4277637
+          },
+          {
+            "name": "Hotel Europa",
+            "lat": 50.0821319,
+            "lon": 14.4271549
+          }
+        ]
+      },
+      "tourist_sites": {
+        "color": "#c0392b",
+        "icon": "camera",
+        "label": "Main Tourist Sites",
+        "markers": [
+          {
+            "name": "Charles Bridge",
+            "lat": 50.0866258,
+            "lon": 14.4101485
+          },
+          {
+            "name": "Old Town Square & Astronomical Clock",
+            "lat": 50.0874453,
+            "lon": 14.4209714
+          },
+          {
+            "name": "Prague Castle",
+            "lat": 50.0908114,
+            "lon": 14.4005225
+          },
+          {
+            "name": "Wenceslas Square",
+            "lat": 50.0815867,
+            "lon": 14.4271699
+          },
+          {
+            "name": "Charles University",
+            "lat": 50.0888947,
+            "lon": 14.4162757
+          }
+        ]
+      },
+      "occult_sites": {
+        "color": "#6b1fa8",
+        "icon": "eye",
+        "label": "Occult/Esoteric Sites",
+        "markers": [
+          {
+            "name": "Speculum Alchemiae",
+            "lat": 50.0907586,
+            "lon": 14.4225595
+          },
+          {
+            "name": "Old Jewish Cemetery",
+            "lat": 50.089975,
+            "lon": 14.416915
+          },
+          {
+            "name": "Old-New Synagogue",
+            "lat": 50.0900388,
+            "lon": 14.4185901
+          },
+          {
+            "name": "Museum of Medieval Torture",
+            "lat": 50.0859846,
+            "lon": 14.4141698
+          }
+        ]
+      },
+      "occult_shops": {
+        "color": "#8B0000",
+        "icon": "shopping-bag",
+        "label": "Occult/Esoteric Shops",
+        "markers": [
+          {
+            "name": "\u010carod\u011bjnick\u00fd obchod (Witch Shop)",
+            "lat": 50.074,
+            "lon": 14.439
+          },
+          {
+            "name": "Knihkupectv\u00ed Port\u00e1l",
+            "lat": 50.081,
+            "lon": 14.427
+          },
+          {
+            "name": "Sana's Magic Shop",
+            "lat": 50.0785407,
+            "lon": 14.4568568
+          }
+        ]
+      }
+    }
+  },
+  "brussels": {
+    "center": [
+      50.835,
+      4.355
+    ],
+    "zoom": 13,
+    "layers": {
+      "stations": {
+        "color": "#1a1a2e",
+        "icon": "train",
+        "label": "Train Station (Arrival/Departure)",
+        "markers": [
+          {
+            "name": "Brussels-Midi",
+            "lat": 50.8105,
+            "lon": 4.336
+          }
+        ]
+      },
+      "accommodations": {
+        "color": "#2d4a8a",
+        "icon": "home",
+        "label": "Accommodations (Top 3)",
+        "markers": [
+          {
+            "name": "Airbnb Saint-Gilles",
+            "lat": 50.8304605,
+            "lon": 4.3422488
+          },
+          {
+            "name": "Airbnb Ixelles",
+            "lat": 50.8331141,
+            "lon": 4.3668279
+          },
+          {
+            "name": "ibis off Grand'Place",
+            "lat": 50.8468554,
+            "lon": 4.3555325
+          }
+        ]
+      },
+      "late_night_cafes": {
+        "color": "#8B4513",
+        "icon": "coffee",
+        "label": "Late-Night Cafes",
+        "markers": [
+          {
+            "name": "Delirium Tremens",
+            "lat": 50.8463,
+            "lon": 4.3525
+          },
+          {
+            "name": "Little Delirium",
+            "lat": 50.8457953,
+            "lon": 4.3528959
+          }
+        ]
+      },
+      "art_deco": {
+        "color": "#C9A227",
+        "icon": "building",
+        "label": "Art Deco Sites",
+        "markers": [
+          {
+            "name": "Palais de la Porte Dor\u00e9e",
+            "lat": 50.8353,
+            "lon": 2.4094
+          }
+        ]
+      },
+      "art_nouveau": {
+        "color": "#2d8a5e",
+        "icon": "leaf",
+        "label": "Art Nouveau Sites",
+        "markers": [
+          {
+            "name": "Horta Museum",
+            "lat": 50.8240988,
+            "lon": 4.3553798
+          },
+          {
+            "name": "H\u00f4tel Tassel",
+            "lat": 50.8277831,
+            "lon": 4.3619832
+          },
+          {
+            "name": "Maison Cauchie",
+            "lat": 50.8383117,
+            "lon": 4.3952811
+          },
+          {
+            "name": "Saint-Gilles Art Nouveau Walk",
+            "lat": 50.8304605,
+            "lon": 4.3422488
+          }
+        ]
+      },
+      "tourist_sites": {
+        "color": "#c0392b",
+        "icon": "camera",
+        "label": "Main Tourist Sites",
+        "markers": [
+          {
+            "name": "Grand Place",
+            "lat": 50.8467139,
+            "lon": 4.3525151
+          },
+          {
+            "name": "Manneken Pis",
+            "lat": 50.8449861,
+            "lon": 4.3499932
+          },
+          {
+            "name": "Royal Museums of Fine Arts",
+            "lat": 50.8416804,
+            "lon": 4.3582377
+          },
+          {
+            "name": "Mont des Arts",
+            "lat": 50.8438626,
+            "lon": 4.3567662
+          }
+        ]
+      },
+      "occult_sites": {
+        "color": "#6b1fa8",
+        "icon": "eye",
+        "label": "Occult/Esoteric Sites",
+        "markers": [
+          {
+            "name": "Egyptian Masonic Temple",
+            "lat": 50.8510481,
+            "lon": 4.3575216
+          }
+        ]
+      },
+      "occult_shops": {
+        "color": "#8B0000",
+        "icon": "shopping-bag",
+        "label": "Occult/Esoteric Shops",
+        "markers": [
+          {
+            "name": "L'Univers Particulier",
+            "lat": 50.823,
+            "lon": 4.342
+          },
+          {
+            "name": "L'Officine des Dragons",
+            "lat": 50.8266126,
+            "lon": 4.3617944
+          },
+          {
+            "name": "Entre Ciel et Terre",
+            "lat": 50.838,
+            "lon": 4.3953
+          },
+          {
+            "name": "La G\u00e9ode",
+            "lat": 50.8473914,
+            "lon": 4.3527717
+          },
+          {
+            "name": "Harmonies",
+            "lat": 50.827,
+            "lon": 4.342
+          }
+        ]
+      }
+    }
+  },
+  "paris": {
+    "center": [
+      48.846,
+      2.33
+    ],
+    "zoom": 13,
+    "layers": {
+      "stations": {
+        "color": "#1a1a2e",
+        "icon": "train",
+        "label": "Train Station (Arrival/Departure)",
+        "markers": [
+          {
+            "name": "Gare Montparnasse",
+            "lat": 48.8400624,
+            "lon": 2.3191085
+          }
+        ]
+      },
+      "accommodations": {
+        "color": "#2d4a8a",
+        "icon": "home",
+        "label": "Accommodations (Top 3)",
+        "markers": [
+          {
+            "name": "Airbnb 14th Arrondissement",
+            "lat": 48.8295585,
+            "lon": 2.323974
+          },
+          {
+            "name": "Airbnb 15th Arrondissement",
+            "lat": 48.8411228,
+            "lon": 2.2927657
+          },
+          {
+            "name": "H\u00f4tel de Paris Montparnasse",
+            "lat": 48.840197,
+            "lon": 2.3221651
+          }
+        ]
+      },
+      "late_night_cafes": {
+        "color": "#8B4513",
+        "icon": "coffee",
+        "label": "Late-Night Cafes",
+        "markers": [
+          {
+            "name": "La Coupole",
+            "lat": 48.8422778,
+            "lon": 2.3280902
+          },
+          {
+            "name": "Le D\u00f4me",
+            "lat": 48.8419574,
+            "lon": 2.3290304
+          }
+        ]
+      },
+      "art_deco": {
+        "color": "#C9A227",
+        "icon": "building",
+        "label": "Art Deco Sites",
+        "markers": [
+          {
+            "name": "La Coupole (Art Deco)",
+            "lat": 48.8422778,
+            "lon": 2.3280902
+          },
+          {
+            "name": "Palais de la Porte Dor\u00e9e",
+            "lat": 48.8352731,
+            "lon": 2.4093649
+          },
+          {
+            "name": "Grand Rex Cinema",
+            "lat": 48.8705334,
+            "lon": 2.3476486
+          }
+        ]
+      },
+      "art_nouveau": {
+        "color": "#2d8a5e",
+        "icon": "leaf",
+        "label": "Art Nouveau Sites",
+        "markers": [
+          {
+            "name": "M\u00e9tro entrances (Guimard)",
+            "lat": 48.8762,
+            "lon": 2.295
+          },
+          {
+            "name": "Galeries Lafayette dome",
+            "lat": 48.8736459,
+            "lon": 2.3321271
+          }
+        ]
+      },
+      "tourist_sites": {
+        "color": "#c0392b",
+        "icon": "camera",
+        "label": "Main Tourist Sites",
+        "markers": [
+          {
+            "name": "Eiffel Tower",
+            "lat": 48.8582599,
+            "lon": 2.2945006
+          },
+          {
+            "name": "Louvre Museum",
+            "lat": 48.8611473,
+            "lon": 2.3380277
+          },
+          {
+            "name": "Notre-Dame Cathedral",
+            "lat": 48.8529371,
+            "lon": 2.3500501
+          },
+          {
+            "name": "Sacr\u00e9-C\u0153ur",
+            "lat": 48.8868058,
+            "lon": 2.3430153
+          },
+          {
+            "name": "Arc de Triomphe",
+            "lat": 48.8737791,
+            "lon": 2.2950372
+          }
+        ]
+      },
+      "occult_sites": {
+        "color": "#6b1fa8",
+        "icon": "eye",
+        "label": "Occult/Esoteric Sites",
+        "markers": [
+          {
+            "name": "Paris Catacombs",
+            "lat": 48.8337439,
+            "lon": 2.3322925
+          },
+          {
+            "name": "Maison de Nicolas Flamel",
+            "lat": 48.8635382,
+            "lon": 2.3531397
+          },
+          {
+            "name": "Mus\u00e9e de la Magie",
+            "lat": 48.8531207,
+            "lon": 2.361167
+          },
+          {
+            "name": "Mus\u00e9e de la Franc-Ma\u00e7onnerie",
+            "lat": 48.8749151,
+            "lon": 2.3431481
+          },
+          {
+            "name": "Mus\u00e9e Gustave Moreau",
+            "lat": 48.8778955,
+            "lon": 2.3345468
+          },
+          {
+            "name": "Church of Saint-Sulpice (Gnomon)",
+            "lat": 48.8522,
+            "lon": 2.3347
+          },
+          {
+            "name": "P\u00e9ladan's Grave",
+            "lat": 48.8979188,
+            "lon": 2.3161165
+          }
+        ]
+      },
+      "occult_shops": {
+        "color": "#8B0000",
+        "icon": "shopping-bag",
+        "label": "Occult/Esoteric Shops",
+        "markers": [
+          {
+            "name": "La Maison de la Radiesth\u00e9sie",
+            "lat": 48.8722,
+            "lon": 2.3294
+          },
+          {
+            "name": "La Librairie du Graal",
+            "lat": 48.861,
+            "lon": 2.34
+          },
+          {
+            "name": "Gibert Jeune \u00c9sot\u00e9risme",
+            "lat": 48.8534661,
+            "lon": 2.3449407
+          },
+          {
+            "name": "La Librairie du Bonheur",
+            "lat": 48.849,
+            "lon": 2.327
+          },
+          {
+            "name": "L'Espace Crystal",
+            "lat": 48.838,
+            "lon": 2.295
+          },
+          {
+            "name": "La Table d'\u00c9meraude",
+            "lat": 48.8948427,
+            "lon": 2.3121031
+          },
+          {
+            "name": "Arc-en-Ciel",
+            "lat": 48.8370024,
+            "lon": 2.3921949
+          },
+          {
+            "name": "Librairie de l'Inconnu",
+            "lat": 48.8532994,
+            "lon": 2.3415858
+          }
+        ]
+      }
+    }
+  }
+}
+;
+
+let maps = {};
+let layerGroups = {};
+let activeCity = 'bucharest';
+
+function createIcon(color, iconName) {
+    return L.divIcon({
+        className: 'custom-marker-wrapper',
+        html: `<div class="custom-marker" style="background:${color}"><i class="fas fa-${iconName}"></i></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -28]
+    });
+}
+
+function initMap(cityKey) {
+    const city = cityData[cityKey];
+    const mapId = `map-${cityKey}`;
+    
+    if (maps[cityKey]) {
+        setTimeout(() => maps[cityKey].invalidateSize(), 200);
+        return;
+    }
+
+    const map = L.map(mapId, { zoomControl: true }).setView(city.center, city.zoom);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, HERE, Garmin, (c) OpenStreetMap contributors',
+        maxZoom: 16
+    }).addTo(map);
+
+    layerGroups[cityKey] = {};
+
+    for (const [catKey, cat] of Object.entries(city.layers)) {
+        const group = L.layerGroup();
+        layerGroups[cityKey][catKey] = group;
+        
+        cat.markers.forEach(m => {
+            const marker = L.marker([m.lat, m.lon], { icon: createIcon(cat.color, cat.icon) });
+            marker.bindPopup(`<b>${m.name}</b><br><span style="color:${cat.color}">${cat.label}</span><br><a href="https://www.openstreetmap.org/?mlat=${m.lat}&mlon=${m.lon}#map=18/${m.lat}/${m.lon}" target="_blank">View on OpenStreetMap</a>`);
+            marker.addTo(group);
+        });
+
+        group.addTo(map);
+    }
+
+    maps[cityKey] = map;
+    
+    // Fix rendering after container becomes visible
+    setTimeout(() => { map.invalidateSize(); }, 300);
+}
+
+function switchCity(cityKey) {
+    activeCity = cityKey;
+    document.querySelectorAll('.city-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.map-container').forEach(c => c.classList.remove('active'));
+    document.querySelector(`#container-${cityKey}`).classList.add('active');
+    
+    // Update tab
+    const tabs = document.querySelectorAll('.city-tab');
+    const idx = Object.keys(cityData).indexOf(cityKey);
+    if (idx >= 0) tabs[idx].classList.add('active');
+    
+    setTimeout(() => initMap(cityKey), 100);
+}
+
+function toggleLayer(cityKey, catKey) {
+    const map = maps[cityKey];
+    const group = layerGroups[cityKey][catKey];
+    if (!map || !group) return;
+    
+    if (map.hasLayer(group)) {
+        map.removeLayer(group);
+        document.querySelectorAll(`#legend-${cityKey} .legend-item`)[Object.keys(cityData[cityKey].layers).indexOf(catKey)].classList.add('disabled');
+    } else {
+        group.addTo(map);
+        document.querySelectorAll(`#legend-${cityKey} .legend-item`)[Object.keys(cityData[cityKey].layers).indexOf(catKey)].classList.remove('disabled');
+    }
+}
+
+// Initialize first city after page load
+window.addEventListener('load', () => {
+    setTimeout(() => initMap('bucharest'), 500);
+});
+</script>
+</body>
+</html>
